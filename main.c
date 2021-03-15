@@ -27,18 +27,57 @@ static v_index indices[36] = {
 };
 
 void
+control_camera (conge_ctx* ctx)
+{
+  vertex movement = {0.0, 0.0, 0.0};
+  double movement_speed = 1.0 * ctx->delta;
+
+  double mouse_sensitivity = 0.05;
+
+  static int grab_key_pressed_last_frame = 0;
+
+  movement.x = ctx->keys[CONGE_D] - ctx->keys[CONGE_A];
+  movement.z = ctx->keys[CONGE_W] - ctx->keys[CONGE_S];
+  movement.y = ctx->keys[CONGE_SPACEBAR] - ctx->keys[CONGE_LCTRL];
+
+  /* Align horizonal movement with the camera. */
+  movement = rotate_y (movement, get_camera_rotation().y);
+  movement = mult (movement, movement_speed);
+  translate_camera (movement);
+
+  if (ctx->grab)
+    {
+      vertex dr = {0.0, 0.0, 0.0}, rotation = get_camera_rotation();
+      double rotation_speed = M_PI_2 * ctx->delta;
+
+      dr.x = ctx->mouse_dy * mouse_sensitivity;
+      dr.y = ctx->mouse_dx * mouse_sensitivity;
+
+      rotation = add (rotation, mult (dr, rotation_speed));
+      /* Prevent making frontflips/backflips with the camera. */
+      rotation.x = CLAMP (rotation.x, -M_PI_2, M_PI_2);
+
+      set_camera_rotation (rotation);
+    }
+
+  /* Emulate "key just pressed" event. */
+  if (ctx->keys[CONGE_LALT])
+    {
+      if (!grab_key_pressed_last_frame)
+        ctx->grab = !ctx->grab;
+
+      grab_key_pressed_last_frame = 1;
+    }
+  else
+    grab_key_pressed_last_frame = 0;
+}
+
+void
 tick (conge_ctx* ctx)
 {
   int x, y, i;
 
   vertex vertices[8];
-
-  vertex movement = {0.0, 0.0, 0.0};
-  vertex rotation = {0.0, 0.0, 0.0};
-
-  double movement_speed = 1.0;
-  double rotation_speed = M_PI_2 * ctx->delta;
-
   vertex v1, v2; /* cube AABB */
 
   strcpy (ctx->title, "conge3d");
@@ -49,23 +88,7 @@ tick (conge_ctx* ctx)
       return;
     }
 
-  /* Camera controls. */
-
-  movement.x = ctx->keys[CONGE_D] - ctx->keys[CONGE_A];
-  movement.y = ctx->keys[CONGE_E] - ctx->keys[CONGE_Q];
-  movement.z = ctx->keys[CONGE_W] - ctx->keys[CONGE_S];
-
-  /* Align horizonal movement with the camera. */
-  movement = rotate_y (movement, get_camera_rotation().y);
-  movement = mult (movement, movement_speed * ctx->delta);
-  translate_camera (movement);
-
-  rotation.x = CLAMP (ctx->keys[CONGE_K] - ctx->keys[CONGE_I], -M_PI_2, M_PI_2);
-  rotation = rotate_y (rotation, rotation.y);
-  rotation.y = ctx->keys[CONGE_L] - ctx->keys[CONGE_J];
-  rotation = mult (rotation, rotation_speed);
-  rotate_camera (rotation);
-
+  control_camera (ctx);
   prepare_graphics (ctx->cols, ctx->rows);
 
   for (i = 0; i < 8; i++)
@@ -129,8 +152,10 @@ main (void)
   set_camera_position (c_pos);
   set_camera_rotation (c_rot);
   set_camera_fov (M_PI_2);
-  set_camera_near (0.05);
+  set_camera_near (0.01);
   set_camera_far (100.0);
+
+  ctx->grab = 1;
 
   conge_run (ctx, tick, 30);
   conge_free (ctx);

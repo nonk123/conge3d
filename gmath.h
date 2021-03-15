@@ -6,10 +6,10 @@
 
 #include "vmath.h"
 
-vertex get_camera_position ();
+vertex get_camera_position (void);
 void set_camera_position (vertex);
 
-vertex get_camera_rotation ();
+vertex get_camera_rotation (void);
 void set_camera_rotation (vertex);
 
 void translate_camera (vertex);
