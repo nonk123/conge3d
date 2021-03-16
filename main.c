@@ -36,7 +36,7 @@ control_camera (conge_ctx* ctx)
       double rotation_speed = M_PI_2 * ctx->delta;
 
       dr.x = ctx->mouse_dy * mouse_sensitivity;
-      dr.y = ctx->mouse_dx * mouse_sensitivity;
+      dr.y = ctx->mouse_dx * mouse_sensitivity * (double) ctx->rows / ctx->cols;
 
       rotation = add (rotation, mult (dr, rotation_speed));
       /* Prevent making frontflips/backflips with the camera. */
@@ -58,43 +58,13 @@ control_camera (conge_ctx* ctx)
 }
 
 void
-draw_mesh_instance (conge_ctx* ctx, mesh_instance instance)
-{
-  int i;
-
-  if (cull_mesh_instance (instance))
-    return;
-
-  for (i = 0; i < instance.mesh->index_count; i += 3)
-    {
-      /* Build a triangle out of vertices. */
-      vertex a = instance.mesh->vertices[instance.mesh->indices[i + 0]];
-      vertex b = instance.mesh->vertices[instance.mesh->indices[i + 1]];
-      vertex c = instance.mesh->vertices[instance.mesh->indices[i + 2]];
-
-      vertex n;
-
-      a = norm_to_screen (project (view (apply_model (instance, a))));
-      b = norm_to_screen (project (view (apply_model (instance, b))));
-      c = norm_to_screen (project (view (apply_model (instance, c))));
-
-      n = tri_normal (a, b, c);
-
-      /* Only draw the visible faces. */
-      if (n.z > 0.0)
-        {
-          conge_pixel fill = {' ', CONGE_BLACK, CONGE_WHITE};
-          conge_draw_triangle (ctx, c.x, c.y, b.x, b.y, a.x, a.y, fill);
-        }
-    }
-}
-
-void
 tick (conge_ctx* ctx)
 {
   int i;
+  char fps[64];
 
   strcpy (ctx->title, "conge3d");
+  sprintf (fps, "FPS: %d", ctx->fps);
 
   if (ctx->keys[CONGE_ESC])
     {
@@ -106,7 +76,12 @@ tick (conge_ctx* ctx)
   prepare_graphics (ctx);
 
   for (i = 0; i < 10; i++)
-    draw_mesh_instance (ctx, teapots[i]);
+    {
+      draw_mesh_instance (ctx, teapots[i]);
+      teapots[i].rotation.y += M_PI_4 * ctx->delta;
+    }
+
+  conge_write_string (ctx, fps, 0, 0, CONGE_WHITE, CONGE_BLACK);
 }
 
 int
@@ -142,12 +117,12 @@ main (void)
   set_camera_position (c_pos);
   set_camera_rotation (zero);
   set_camera_fov (M_PI_2);
-  set_camera_near (0.01);
+  set_camera_near (0.1);
   set_camera_far (100.0);
 
   ctx->grab = 1;
 
-  conge_run (ctx, tick, 30);
+  conge_run (ctx, tick, 60);
   conge_free (ctx);
 
   free_mesh (mesh);

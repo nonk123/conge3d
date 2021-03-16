@@ -8,8 +8,8 @@ conge3d.exe: $(OBJ)
 
 main.obj: vmath.h gmath.h mesh.h conge/conge.h
 vmath.obj: vmath.h
-gmath.obj: vmath.h gmath.h conge/conge.h
-mesh.obj: vmath.h mesh.h
+gmath.obj: gmath.h vmath.h conge/conge.h
+mesh.obj: mesh.h vmath.h gmath.h conge/conge.h
 
 .PHONY: clean
 

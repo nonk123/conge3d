@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#include "conge/conge.h"
+
 #include "vmath.h"
 
 typedef struct mesh_t mesh_t;
@@ -28,14 +30,14 @@ struct mesh_instance
 void free_mesh (mesh_t*);
 
 /*
+ * Draw a mesh instance on the screen, with MVP applied.
+ */
+void draw_mesh_instance (conge_ctx*, mesh_instance);
+
+/*
  * Apply model transform (matrix) onto a given vertex.
  */
 vertex apply_model (mesh_instance, vertex);
-
-/*
- * Return true if the given mesh instance is culled, or its mesh is null.
- */
-int cull_mesh_instance (mesh_instance instance);
 
 /*
  * Load a mesh from the given .obj file.

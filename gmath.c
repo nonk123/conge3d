@@ -74,30 +74,21 @@ set_camera_far (double far)
 void
 update_frustum ()
 {
-  /* Half viewport size. */
-  double hh = tan (camera.fov * 0.5);
-  double hw = hh / aspect_ratio;
+  double theta = camera.fov * 0.5;
 
-  /* Viewport corners. */
-  vertex nw = {-hw,  hh, 1.0};
-  vertex ne = { hw,  hh, 1.0};
-  vertex sw = {-hw, -hh, 1.0};
-  vertex se = { hw, -hh, 1.0};
+  vertex top = {0.0, 1.0, 0.0};
+  vertex bottom = {0.0, -1.0, 0.0};
+  vertex right = {1.0, 0.0, 0.0};
+  vertex left = {-1.0, 0.0, 0.0};
+  vertex near = {0.0, 0.0, -1.0};
+  vertex far = {0.0, 0.0, 1.0};
 
-  /* Frustum planes normals. */
-  vertex top = norm (cross (nw, ne));
-  vertex bottom = norm (cross (se, sw));
-  vertex right = norm (cross (ne, se));
-  vertex left = norm (cross (sw, nw));
-  vertex n = {0.0, 0.0, -1.0};
-  vertex f = {0.0, 0.0, 1.0};
-
-  camera.frustum[0] = top;
-  camera.frustum[1] = bottom;
-  camera.frustum[2] = left;
-  camera.frustum[3] = right;
-  camera.frustum[4] = n;
-  camera.frustum[5] = f;
+  camera.frustum[0] = rotate_x (top, theta);
+  camera.frustum[1] = rotate_x (bottom, -theta);
+  camera.frustum[2] = rotate_y (right, -theta);
+  camera.frustum[3] = rotate_y (left, theta);
+  camera.frustum[4] = near;
+  camera.frustum[5] = far;
 }
 
 void
@@ -122,14 +113,7 @@ vertex
 tri_normal (vertex a, vertex b, vertex c)
 {
   vertex u = sub (b, a), v = sub (c, a);
-  vertex n = cross (u, v);
-
-  double l = length (n);
-
-  n.x /= l;
-  n.y /= l;
-  n.z /= l;
-
+  vertex n = norm (cross (u, v));
   return n;
 }
 
@@ -190,19 +174,20 @@ cull_aabb (vertex min, vertex max)
 
   for (; i < 6; i++)
     {
-      vertex furthest;
+      if (i < 4)
+        {
+          vertex closest;
 
-      furthest.x = camera.frustum[i].x < 0.0 ? min.x : max.x;
-      furthest.y = camera.frustum[i].y < 0.0 ? min.y : max.y;
-      furthest.z = camera.frustum[i].z < 0.0 ? min.z : max.z;
+          closest.x = camera.frustum[i].x < 0.0 ? min.x : max.x;
+          closest.y = camera.frustum[i].y < 0.0 ? min.y : max.y;
+          closest.z = camera.frustum[i].z < 0.0 ? min.z : max.z;
 
-      if (i < 4 && dot (camera.frustum[i], furthest) > 0.0)
+          if (dot (camera.frustum[i], closest) < 0.0)
+            return 1;
+        }
+      else if (i == 4 && min.z < camera.near)
         return 1;
-
-      if (i == 4 && furthest.z < camera.near)
-        return 1;
-
-      if (i == 5 && furthest.z > camera.far)
+      else if (i == 5 && min.z > camera.far)
         return 1;
     }
 

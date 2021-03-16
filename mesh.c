@@ -26,48 +26,74 @@ free_mesh (mesh_t* mesh)
   mesh = NULL;
 }
 
+void
+draw_mesh_instance (conge_ctx* ctx, mesh_instance instance)
+{
+  int i = 0;
+
+  vertex* transformed = NULL;
+  vertex min, max;
+
+  if (instance.mesh == NULL)
+    return;
+
+  transformed = calloc (instance.mesh->vertex_count, sizeof (vertex));
+
+  for (i = 0; i < instance.mesh->vertex_count; i++)
+    {
+      transformed[i] = project (view (apply_model (instance, instance.mesh->vertices[i])));
+
+      /* Find the minimum and the maximum point of the bounding box. */
+      if (i == 0)
+        min = max = transformed[i];
+      else
+        {
+          min.x = MIN (min.x, transformed[i].x);
+          min.y = MIN (min.y, transformed[i].y);
+          min.z = MIN (min.z, transformed[i].z);
+
+          max.x = MAX (max.x, transformed[i].x);
+          max.y = MAX (max.y, transformed[i].y);
+          max.z = MAX (max.z, transformed[i].z);
+        }
+    }
+
+  if (cull_aabb (min, max))
+    {
+      free (transformed);
+      return;
+    }
+
+  for (i = 0; i < instance.mesh->index_count; i += 3)
+    {
+      /* Build a triangle out of vertices. */
+      vertex a = norm_to_screen (transformed[instance.mesh->indices[i + 2]]);
+      vertex b = norm_to_screen (transformed[instance.mesh->indices[i + 1]]);
+      vertex c = norm_to_screen (transformed[instance.mesh->indices[i + 0]]);
+
+      vertex n = tri_normal (a, b, c);
+
+      /* Only draw the visible faces. */
+      if (n.z < 0.0)
+        {
+          conge_pixel fill = {' ', CONGE_BLACK, CONGE_WHITE};
+          conge_draw_triangle (ctx, a.x, a.y, b.x, b.y, c.x, c.y, fill);
+        }
+    }
+
+  free (transformed);
+}
+
 vertex
 apply_model (mesh_instance instance, vertex v)
 {
-  v = add (v, instance.position);
-
   v = rotate_x (v, instance.rotation.x);
   v = rotate_y (v, instance.rotation.y);
   v = rotate_z (v, instance.rotation.z);
 
+  v = add (v, instance.position);
+
   return v;
-}
-
-int
-cull_mesh_instance (mesh_instance instance)
-{
-  vertex min, max;
-  int i;
-
-  if (instance.mesh == NULL)
-    return 1;
-
-  /* Construct an AABB from the mesh. */
-  for (i = 0; i < instance.mesh->vertex_count; i++)
-    {
-      vertex v = instance.mesh->vertices[i];
-      v = project (view (apply_model (instance, v)));
-
-      if (i == 0)
-        min = max = v;
-      else
-        {
-          min.x = MIN (min.x, v.x);
-          min.y = MIN (min.y, v.y);
-          min.z = MIN (min.z, v.z);
-
-          max.x = MAX (max.x, v.x);
-          max.y = MAX (max.y, v.y);
-          max.z = MAX (max.z, v.z);
-        }
-    }
-
-  return cull_aabb (min, max);
 }
 
 #define READ_LINE (fgets (line, 256, fh) != NULL)
@@ -123,9 +149,9 @@ mesh_t* load_obj (FILE* fh)
                     &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3);
 
           /* Normals and textures are ignored for now. */
-          mesh->indices[index_count++] = v1;
-          mesh->indices[index_count++] = v2;
-          mesh->indices[index_count++] = v3;
+          mesh->indices[index_count++] = v1 - 1;
+          mesh->indices[index_count++] = v2 - 1;
+          mesh->indices[index_count++] = v3 - 1;
         }
     }
 
