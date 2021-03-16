@@ -4,6 +4,11 @@
  * It takes a lot of space and should rest in a separate file.
  */
 
+#ifndef GMATH_H
+#define GMATH_H
+
+#include "conge/conge.h"
+
 #include "vmath.h"
 
 vertex get_camera_position (void);
@@ -25,7 +30,7 @@ void set_camera_far (double);
  * This function updates the frustum planes and the screen projection, all in
  * order to match up with the current aspect ratio.
  */
-void prepare_graphics (int, int);
+void prepare_graphics (conge_ctx*);
 
 /*
  * Calculate the normal of a triangle (surface) defined by its vertices.
@@ -50,4 +55,6 @@ vertex norm_to_screen (vertex);
 /*
  * Return true if the given AABB, defined by its two corners, is culled.
  */
-int cull (vertex, vertex);
+int cull_aabb (vertex, vertex);
+
+#endif /* GMATH_H */

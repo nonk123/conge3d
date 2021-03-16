@@ -2,6 +2,9 @@
  * vmath.h - vector- and misc. math.
  */
 
+#ifndef VMATH_H
+#define VMATH_H
+
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
@@ -25,7 +28,7 @@ vertex add (vertex, vertex);
 vertex sub (vertex, vertex);
 
 /*
- * Perform scalar multiplication on the given vector.
+ * Multiply the given vector by a scalar.
  */
 vertex mult (vertex, double);
 
@@ -59,3 +62,5 @@ double dot (vertex, vertex);
 vertex rotate_x (vertex, double);
 vertex rotate_y (vertex, double);
 vertex rotate_z (vertex, double);
+
+#endif /* VMATH_H */

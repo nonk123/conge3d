@@ -3,4 +3,6 @@
 *~
 
 *.obj
+!teapot.obj
+
 conge3d.exe

@@ -89,8 +89,8 @@ update_frustum ()
   vertex bottom = norm (cross (se, sw));
   vertex right = norm (cross (ne, se));
   vertex left = norm (cross (sw, nw));
-  vertex n = {0.0, 0.0, 1.0};
-  vertex f = {0.0, 0.0, -1.0};
+  vertex n = {0.0, 0.0, -1.0};
+  vertex f = {0.0, 0.0, 1.0};
 
   camera.frustum[0] = top;
   camera.frustum[1] = bottom;
@@ -101,13 +101,19 @@ update_frustum ()
 }
 
 void
-prepare_graphics (int width, int height)
+prepare_graphics (conge_ctx* ctx)
 {
-  /* Multiply to compensate for the console font size. */
-  aspect_ratio = 1.8 * height / width;
+  CONSOLE_FONT_INFO font_info;
 
-  s_width = width;
-  s_height = height;
+  double console_font_ar;
+
+  GetCurrentConsoleFont (ctx->internal.output, FALSE, &font_info);
+
+  s_width = ctx->cols;
+  s_height = ctx->rows;
+
+  console_font_ar = (double) font_info.dwFontSize.Y / font_info.dwFontSize.X;
+  aspect_ratio = console_font_ar * s_height / s_width;
 
   update_frustum ();
 }
@@ -130,8 +136,15 @@ tri_normal (vertex a, vertex b, vertex c)
 vertex
 norm_to_screen (vertex v)
 {
-  v.x = round ((v.x + 1.0) * 0.5 * s_width);
-  v.y = round ((1.0 - v.y) * 0.5 * s_height);
+  /* Screen coordinates from 0.0 to 1.0 */
+  double sx = (v.x + 1.0) * 0.5;
+  double sy = (1.0 - v.y) * 0.5;
+
+  sx = CLAMP (sx, 0.0, 1.0);
+  sy = CLAMP (sy, 0.0, 1.0);
+
+  v.x = round (sx * s_width);
+  v.y = round (sy * s_height);
 
   return v;
 }
@@ -159,9 +172,9 @@ project (vertex v)
   /* This is basically a black box for me. */
   r.x = v.x * f * aspect_ratio;
   r.y = v.y * f;
-  r.z = v.z * q - camera.near * q;
+  r.z = (v.z - camera.near) * q;
 
-  if (fabs (v.z) > 0.001)
+  if (fabs (v.z) > 0.0001)
     {
       r.x /= v.z;
       r.y /= v.z;
@@ -171,7 +184,7 @@ project (vertex v)
 }
 
 int
-cull (vertex v1, vertex v2)
+cull_aabb (vertex min, vertex max)
 {
   int i = 0;
 
@@ -179,15 +192,17 @@ cull (vertex v1, vertex v2)
     {
       vertex furthest;
 
-      furthest.x = camera.frustum[i].x > 0.0 ? v1.x : v2.x;
-      furthest.y = camera.frustum[i].y > 0.0 ? v1.y : v2.y;
-      furthest.z = camera.frustum[i].z > 0.0 ? v1.z : v2.z;
+      furthest.x = camera.frustum[i].x < 0.0 ? min.x : max.x;
+      furthest.y = camera.frustum[i].y < 0.0 ? min.y : max.y;
+      furthest.z = camera.frustum[i].z < 0.0 ? min.z : max.z;
 
       if (i < 4 && dot (camera.frustum[i], furthest) > 0.0)
         return 1;
-      else if (i == 4 && furthest.z < camera.near)
+
+      if (i == 4 && furthest.z < camera.near)
         return 1;
-      else if (i == 5 && furthest.z > camera.far)
+
+      if (i == 5 && furthest.z > camera.far)
         return 1;
     }
 

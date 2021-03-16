@@ -1,3 +1,10 @@
 * conge3d
 
 A 3D graphics experiment implemented with [[https://github.com/nonk123/conge][conge]].
+
+** Controls
+
+- =WASD= to move around.
+- =Space= and =Ctrl= to go up and down.
+- Mouse to look around.
+- =LAlt= to toggle mouse grab.
