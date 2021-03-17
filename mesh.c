@@ -103,6 +103,7 @@ mesh_t* load_obj (FILE* fh)
   char line[256];
 
   int vertex_count = 0, index_count = 0;
+  int idx_per_face = 3; /* 3 for triangles and 4 for quads */
 
   mesh_t* mesh = malloc (sizeof *mesh);
 
@@ -113,7 +114,27 @@ mesh_t* load_obj (FILE* fh)
         vertex_count++;
 
       if (line[0] == 'f' && line[1] == ' ')
-        index_count += 3;
+        {
+          int tmp;
+
+          char* s = line;
+          int occurences = 0;
+
+          /* Detect quad faces by looking for an extra set of slashes. */
+          if (index_count == 0)
+            {
+              while ((s = strstr (s, "/")) != NULL)
+                {
+                  occurences++;
+                  s++;
+                }
+
+              if (occurences == 8)
+                idx_per_face = 4;
+            }
+
+          index_count += idx_per_face == 3 ? 3 : 6;
+        }
     }
 
   mesh->vertices = calloc (vertex_count, sizeof (vertex));
@@ -138,20 +159,35 @@ mesh_t* load_obj (FILE* fh)
 
       if (line[0] == 'f' && line[1] == ' ')
         {
-          v_index v1, t1, n1, v2, t2, n2, v3, t3, n3;
+          char* s = &line[1];
+          v_index indices[4];
+          int j;
 
-          /* Special handling when texture index is omitted. */
-          if (strstr (line, "//") != NULL)
-            sscanf (line, "f %hd//%hd %hd//%hd %hd//%hd",
-                    &v1, &n1, &v2, &n2, &v3, &n3);
-          else
-            sscanf (line, "f %hd/%hd/%hd %hd/%hd/%hd %hd/%hd/%hd",
-                    &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3);
+          for (j = 0; j < idx_per_face; j++)
+            {
+              sscanf (s, " %hd/", &indices[j]);
+              indices[j]--; /* .obj indices start with 1 */
+
+              /* Skip until next space. */
+              while (*++s != ' ' && *s != '\n');
+            }
 
           /* Normals and textures are ignored for now. */
-          mesh->indices[index_count++] = v1 - 1;
-          mesh->indices[index_count++] = v2 - 1;
-          mesh->indices[index_count++] = v3 - 1;
+          if (idx_per_face == 3)
+            {
+              mesh->indices[index_count++] = indices[0];
+              mesh->indices[index_count++] = indices[1];
+              mesh->indices[index_count++] = indices[2];
+            }
+          else
+            {
+              mesh->indices[index_count++] = indices[0];
+              mesh->indices[index_count++] = indices[1];
+              mesh->indices[index_count++] = indices[2];
+              mesh->indices[index_count++] = indices[0];
+              mesh->indices[index_count++] = indices[2];
+              mesh->indices[index_count++] = indices[3];
+            }
         }
     }
 

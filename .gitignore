@@ -3,6 +3,8 @@
 *~
 
 *.obj
+
 !teapot.obj
+!amogus.obj
 
 conge3d.exe

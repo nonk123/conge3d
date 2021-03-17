@@ -9,7 +9,7 @@
 
 #include "conge/conge.h"
 
-static mesh_instance teapots[10];
+static mesh_instance amogus;
 
 void
 control_camera (conge_ctx* ctx)
@@ -75,11 +75,8 @@ tick (conge_ctx* ctx)
   control_camera (ctx);
   prepare_graphics (ctx);
 
-  for (i = 0; i < 10; i++)
-    {
-      draw_mesh_instance (ctx, teapots[i]);
-      teapots[i].rotation.y += M_PI_4 * ctx->delta;
-    }
+  draw_mesh_instance (ctx, amogus);
+  amogus.rotation.y -= M_PI_2 * ctx->delta;
 
   conge_write_string (ctx, fps, 0, 0, CONGE_WHITE, CONGE_BLACK);
 }
@@ -89,10 +86,10 @@ main (void)
 {
   conge_ctx* ctx = conge_init ();
 
-  vertex c_pos = {0.0, 0.0, -10.0};
+  vertex c_pos = {0.0, 0.0, -1.0};
   vertex zero = {0.0, 0.0, 0.0};
 
-  FILE* fh = fopen ("teapot.obj", "r");
+  FILE* fh = fopen ("amogus.obj", "r");
   mesh_t* mesh = NULL;
 
   int i;
@@ -105,14 +102,10 @@ main (void)
 
   mesh = load_obj (fh);
 
-  for (i = 0; i < 10; i++)
-    {
-      vertex offset = {8.0 * (i - 5.0), 0.0, 0.0};
-
-      teapots[i].mesh = mesh;
-      teapots[i].position = add (zero, offset);
-      teapots[i].rotation = zero;
-    }
+  amogus.mesh = mesh;
+  amogus.position = zero;
+  amogus.rotation = zero;
+  amogus.rotation.y = M_PI;
 
   set_camera_position (c_pos);
   set_camera_rotation (zero);
