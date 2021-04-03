@@ -26,62 +26,106 @@ free_mesh (mesh_t* mesh)
   mesh = NULL;
 }
 
+/*
+ * Apply brightness to a base color (not the light version).
+ */
+conge_color
+apply_brightness (conge_color base, double brightness)
+{
+  static conge_color shades[8][4] = {
+    {CONGE_GRAY, CONGE_GRAY, CONGE_WHITE, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_BLUE, CONGE_LBLUE, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_GREEN, CONGE_LGREEN, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_AQUA, CONGE_LAQUA, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_RED, CONGE_LRED, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_PURPLE, CONGE_LPURPLE, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_YELLOW, CONGE_LYELLOW, CONGE_WHITE},
+    {CONGE_GRAY, CONGE_WHITE, CONGE_BWHITE, CONGE_BWHITE},
+  };
+
+  int index = floor (CLAMP (brightness, 0.0, 0.99) * 4.0);
+
+  return shades[base][index];
+}
+
+#define SHADE_COUNT 5
+
+/*
+ * Return the properly shaded pixel based on the surface normal to be rendered
+ * and the direction of lighting.
+ */
+conge_pixel
+compute_lighting (vertex normal)
+{
+  static vertex light_dir = {0.0, 0.0, 1.0};
+  static conge_color light_color = CONGE_BLUE;
+
+  static char shade[SHADE_COUNT] = {'&', '%', '$', '#', '@'};
+
+  double ambient = 0.2;
+  double diffuse = dot (normal, norm (light_dir));
+  int shade_index = floor (fabs (normal.z * SHADE_COUNT));
+
+  conge_pixel pixel;
+
+  pixel.character = shade[shade_index];
+  pixel.fg = apply_brightness (light_color, MAX (ambient + diffuse, 0.0));
+  pixel.bg = CONGE_BLACK;
+
+  return pixel;
+}
+
+#undef SHADE_COUNT
+
 void
 draw_mesh_instance (conge_ctx* ctx, mesh_instance instance)
 {
   int i = 0;
 
-  vertex* transformed = NULL;
   vertex min, max;
 
   if (instance.mesh == NULL)
     return;
 
-  transformed = calloc (instance.mesh->vertex_count, sizeof (vertex));
-
-  for (i = 0; i < instance.mesh->vertex_count; i++)
-    {
-      transformed[i] = project (view (apply_model (instance, instance.mesh->vertices[i])));
-
-      /* Find the minimum and the maximum point of the bounding box. */
-      if (i == 0)
-        min = max = transformed[i];
-      else
-        {
-          min.x = MIN (min.x, transformed[i].x);
-          min.y = MIN (min.y, transformed[i].y);
-          min.z = MIN (min.z, transformed[i].z);
-
-          max.x = MAX (max.x, transformed[i].x);
-          max.y = MAX (max.y, transformed[i].y);
-          max.z = MAX (max.z, transformed[i].z);
-        }
-    }
+  /* Transform the AABB to match up with the object's orientation. */
+  min = view (apply_model (instance, instance.mesh->aabb[0]));
+  max = view (apply_model (instance, instance.mesh->aabb[1]));
 
   if (cull_aabb (min, max))
-    {
-      free (transformed);
-      return;
-    }
+    return;
 
+  /* Draw the visible faces. */
   for (i = 0; i < instance.mesh->index_count; i += 3)
     {
-      /* Build a triangle out of vertices. */
-      vertex a = norm_to_screen (transformed[instance.mesh->indices[i + 2]]);
-      vertex b = norm_to_screen (transformed[instance.mesh->indices[i + 1]]);
-      vertex c = norm_to_screen (transformed[instance.mesh->indices[i + 0]]);
+      /* Make a triangle. */
+      vertex a = instance.mesh->vertices[instance.mesh->indices[i + 0]];
+      vertex b = instance.mesh->vertices[instance.mesh->indices[i + 1]];
+      vertex c = instance.mesh->vertices[instance.mesh->indices[i + 2]];
 
-      vertex n = tri_normal (a, b, c);
+      /* Lighting is computed in world coordinates. */
+      vertex m_a = apply_model (instance, a);
+      vertex m_b = apply_model (instance, b);
+      vertex m_c = apply_model (instance, c);
 
-      /* Only draw the visible faces. */
-      if (n.z < 0.0)
+      vertex mvp_a = project (view (m_a));
+      vertex mvp_b = project (view (m_b));
+      vertex mvp_c = project (view (m_c));
+
+      vertex mvp_normal = tri_normal (mvp_a, mvp_b, mvp_c);
+
+      /* If the triangle points to the camera, draw it. */
+      if (mvp_normal.z > 0.0)
         {
-          conge_pixel fill = {' ', CONGE_BLACK, CONGE_WHITE};
-          conge_draw_triangle (ctx, a.x, a.y, b.x, b.y, c.x, c.y, fill);
+          conge_pixel fill = compute_lighting (tri_normal (m_a, m_b, m_c));
+
+          mvp_a = norm_to_screen (mvp_a);
+          mvp_b = norm_to_screen (mvp_b);
+          mvp_c = norm_to_screen (mvp_c);
+
+          conge_draw_triangle (ctx, mvp_a.x, mvp_a.y, mvp_b.x,
+                               mvp_b.y, mvp_c.x, mvp_c.y, fill);
         }
     }
-
-  free (transformed);
 }
 
 vertex
@@ -115,8 +159,6 @@ mesh_t* load_obj (FILE* fh)
 
       if (line[0] == 'f' && line[1] == ' ')
         {
-          int tmp;
-
           char* s = line;
           int occurences = 0;
 
@@ -143,6 +185,11 @@ mesh_t* load_obj (FILE* fh)
   mesh->indices = calloc (index_count, sizeof (v_index));
   mesh->index_count = index_count;
 
+  mesh->aabb[0].x = 0.0;
+  mesh->aabb[0].y = 0.0;
+  mesh->aabb[0].z = 0.0;
+  mesh->aabb[1] = mesh->aabb[0];
+
   fseek (fh, 0, SEEK_SET);
 
   vertex_count = 0;
@@ -155,6 +202,16 @@ mesh_t* load_obj (FILE* fh)
         {
           vertex* v = &mesh->vertices[vertex_count++];
           sscanf(line, "v %lf %lf %lf", &v->x, &v->y, &v->z);
+
+          /* Calculate the AABB for the mesh. */
+
+          mesh->aabb[0].x = MIN (mesh->aabb[0].x, v->x);
+          mesh->aabb[0].y = MIN (mesh->aabb[0].y, v->y);
+          mesh->aabb[0].z = MIN (mesh->aabb[0].z, v->z);
+
+          mesh->aabb[1].x = MAX (mesh->aabb[1].x, v->x);
+          mesh->aabb[1].y = MAX (mesh->aabb[1].y, v->y);
+          mesh->aabb[1].z = MAX (mesh->aabb[1].z, v->z);
         }
 
       if (line[0] == 'f' && line[1] == ' ')

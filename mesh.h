@@ -14,6 +14,7 @@ struct mesh_t
   v_index vertex_count;
   v_index* indices;
   v_index index_count;
+  vertex aabb[2]; /* the "base" AABB, without transformations */
 };
 
 typedef struct mesh_instance mesh_instance;

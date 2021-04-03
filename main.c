@@ -9,7 +9,7 @@
 
 #include "conge/conge.h"
 
-static mesh_instance amogus;
+static mesh_instance model;
 
 void
 control_camera (conge_ctx* ctx)
@@ -17,7 +17,7 @@ control_camera (conge_ctx* ctx)
   vertex movement = {0.0, 0.0, 0.0};
   double movement_speed = 1.0 * ctx->delta;
 
-  double mouse_sensitivity = 0.05;
+  double mouse_sensitivity = 0.02;
 
   static int grab_key_pressed_last_frame = 0;
 
@@ -36,7 +36,7 @@ control_camera (conge_ctx* ctx)
       double rotation_speed = M_PI_2 * ctx->delta;
 
       dr.x = ctx->mouse_dy * mouse_sensitivity;
-      dr.y = ctx->mouse_dx * mouse_sensitivity * (double) ctx->rows / ctx->cols;
+      dr.y = ctx->mouse_dx * mouse_sensitivity;
 
       rotation = add (rotation, mult (dr, rotation_speed));
       /* Prevent making frontflips/backflips with the camera. */
@@ -75,8 +75,8 @@ tick (conge_ctx* ctx)
   control_camera (ctx);
   prepare_graphics (ctx);
 
-  draw_mesh_instance (ctx, amogus);
-  amogus.rotation.y -= M_PI_2 * ctx->delta;
+  draw_mesh_instance (ctx, model);
+  model.rotation.y -= M_PI_2 * ctx->delta;
 
   conge_write_string (ctx, fps, 0, 0, CONGE_WHITE, CONGE_BLACK);
 }
@@ -86,7 +86,7 @@ main (void)
 {
   conge_ctx* ctx = conge_init ();
 
-  vertex c_pos = {0.0, 0.0, -1.0};
+  vertex c_pos = {0.0, 0.5, -1.0};
   vertex zero = {0.0, 0.0, 0.0};
 
   FILE* fh = fopen ("amogus.obj", "r");
@@ -102,10 +102,10 @@ main (void)
 
   mesh = load_obj (fh);
 
-  amogus.mesh = mesh;
-  amogus.position = zero;
-  amogus.rotation = zero;
-  amogus.rotation.y = M_PI;
+  model.mesh = mesh;
+  model.position = zero;
+  model.rotation = zero;
+  model.rotation.y = M_PI;
 
   set_camera_position (c_pos);
   set_camera_rotation (zero);

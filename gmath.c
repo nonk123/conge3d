@@ -113,22 +113,14 @@ vertex
 tri_normal (vertex a, vertex b, vertex c)
 {
   vertex u = sub (b, a), v = sub (c, a);
-  vertex n = norm (cross (u, v));
-  return n;
+  return norm (cross (u, v));
 }
 
 vertex
 norm_to_screen (vertex v)
 {
-  /* Screen coordinates from 0.0 to 1.0 */
-  double sx = (v.x + 1.0) * 0.5;
-  double sy = (1.0 - v.y) * 0.5;
-
-  sx = CLAMP (sx, 0.0, 1.0);
-  sy = CLAMP (sy, 0.0, 1.0);
-
-  v.x = round (sx * s_width);
-  v.y = round (sy * s_height);
+  v.x = round ((v.x + 1.0) * 0.5 * s_width);
+  v.y = round ((1.0 - v.y) * 0.5 * s_height);
 
   return v;
 }
